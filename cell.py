@@ -1,6 +1,10 @@
-class Cell:
-    def __init__(self):
-        self.empty = "0"
+import tkinter as tk
 
-    def __repr__(self):
-        return self.empty
+class Cell(tk.Button):
+    def __init__(self, master, row, col, **kwargs):
+        super().__init__(master, **kwargs)
+        self.row=row
+        self.col=col
+        self.empty = True
+
+        
