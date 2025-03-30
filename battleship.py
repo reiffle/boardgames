@@ -1,8 +1,10 @@
 import tkinter as tk
 from random import randint
 
+game_over=False
+
 class Battleship_Cell(tk.Button):
-    def __init__(self, master, row, column,fleet_reference=None, info_reference=None, **kwargs):
+    def __init__(self, master, row, column, name=None, fleet_reference=None, info_reference=None, message_callback=None, switch_turns_callback=None, **kwargs):
         super().__init__(master, **kwargs)
         self.row=row
         self.column=column
@@ -10,70 +12,89 @@ class Battleship_Cell(tk.Button):
         self.shot=False
         self.fleet=fleet_reference
         self.info=info_reference
+        self.message_callback=message_callback
+        self.switch_turns=switch_turns_callback
+        self.name=name
         self.configure(width=2, height=1, command=self.click)
 
     def click(self):
+        if (game_over):
+            return
         if not self.shot:
+            self.switch_turns()
             self.shot = True
+            self.message_callback(f"X:{self.column}, Y:{self.row}")
             if self.has_ship:
                 self.configure(bg="red", text="X")
                 ship_index=self.has_ship-1
                 if self.fleet and 0<=ship_index<len(self.fleet):
                     self.fleet[ship_index].hit()
                     update_info(self.fleet[ship_index], self.info[ship_index+1])
+                    self.check_gameover()
             else:
                 self.configure(bg="gray", text="O")
+                self.message_callback("Miss!")
+
+    def check_gameover(self):
+        global game_over
+        for ship in (self.fleet):
+            if (not ship.sunk):
+                return
+        if self.message_callback:
+            self.message_callback(f"{self.name} has no ships. Opponent wins!")
+            game_over=True
+            return
+        print("Gameover")
+        game_over=True
+        return
 
 class Ship:
-    def __init__(self, name="ship", size=3):
+    def __init__(self, name="ship", size=3, message_callback=None):
         self.size = size
         self.hits = 0
         self.name = name
         self.sunk = False
+        self.message_callback = message_callback
 
     def hit(self):
         self.hits += 1
-        print(f"{self.name} has been hit!")
+        if self.message_callback:
+            self.message_callback(f"{self.name} has been hit!")
+        else:
+            print(f"{self.name} has been hit!")
         if self.hits == self.size:
             self.sunk = True
-            print(f"{self.name} has been sunk!")
-
-fleet= [Ship("Carrier" , 5), Ship("Battleship" , 4), Ship("Destroyer" , 3), Ship("Submarine" , 3), Ship("Patrol Boat" , 2)]
+            if self.message_callback:
+                self.message_callback(f"{self.name} has been sunk!")
+            else:
+                print(f"{self.name} has been sunk!")
 
 ###Start board creation
-def setup_board():
-    root=tk.Tk()
-    root.title("Battleship")
-    fleet1 = [Ship("Carrier" , 5), Ship("Battleship" , 4), Ship("Destroyer" , 3), Ship("Submarine" , 3), Ship("Patrol Boat" , 2)]
-    fleet2 = [Ship("Carrier" , 5), Ship("Battleship" , 4), Ship("Destroyer" , 3), Ship("Submarine" , 3), Ship("Patrol Boat" , 2)]
+def setup_board(frame, hue, row, name, fleet, message_callback=None, switch_turns_callback=None):
+
+    board_container=tk.Frame(frame)
+    fleet1 = fleet
     #Main boards
-    game_board1 = tk.Frame(root)
-    game_board2 = tk.Frame(root)
-    game_board1.grid(row=0, column=0)
-    game_board2.grid(row=1, column=0)
+    game_board1 = tk.Frame(board_container)
+    game_board1.grid(row=row, column=0)
     #Ship labels
-    fleet_info1 = tk.Frame(root)
-    fleet_info2 = tk.Frame(root)
-    fleet_info1.grid(row=0, column=1)
-    fleet_info2.grid(row=1, column=1)
+    fleet_info1 = tk.Frame(board_container)
+    fleet_info1.grid(row=row, column=1)
     #The actual board grids
-    info1=init_info(fleet_info1, "blue", fleet1)
-    info2=init_info(fleet_info2, "green", fleet2)
-    cells1=init_gameboard(game_board1, "blue", fleet1, info1)
-    cells2=init_gameboard(game_board2, "green", fleet2, info2)
+    info1=init_info(fleet_info1, hue, fleet1)
+    cells1=init_gameboard(game_board1, hue, name, fleet1, info1, message_callback, switch_turns_callback=switch_turns_callback)
     for x in range(len(fleet1)):
-        place_ship(cells1, fleet1[x].size, x+1)    
-    for x in range(len(fleet2)):
-        place_ship(cells2, fleet2[x].size, x+1)    
-    root.mainloop()
+        place_ship(name, cells1, fleet1[x].size, x+1)
+    board_container.grid(row=row, column=0)
+    return board_container, cells1    
 
 #Make empty board
-def init_gameboard(board, background, fleet_reference=None, info_reference=None):
+def init_gameboard(board, background, name, fleet_reference=None, info_reference=None, message_callback=None, switch_turns_callback=None):
     cells=[]
     for r in range(10):
         row=[]
         for c in range(10):
-            cell=Battleship_Cell(board, r, c, fleet_reference=fleet_reference, info_reference=info_reference, bg=background)
+            cell=Battleship_Cell(board, r, c, name, fleet_reference=fleet_reference, info_reference=info_reference, bg=background, message_callback=message_callback, switch_turns_callback=switch_turns_callback)
             cell.grid(row=r, column=c)
             row.append(cell)
         cells.append(row)
@@ -120,9 +141,15 @@ def update_info(ship, info):
         info[3].configure(text=str(ship.sunk))
         for label in info:
             label.configure(fg="red")
+
+def toggle_board(cells, state):
+    for row in cells:
+        for cell in row:
+            if not cell.shot:
+                cell.configure(state=state)
             
 #Place ship on the board    
-def place_ship(cells, ship_size, ship_number):
+def place_ship(name, cells, ship_size, ship_number):
     while True:
         x = randint(0,9)
         y = randint(0,9)
@@ -132,16 +159,16 @@ def place_ship(cells, ship_size, ship_number):
         while True:
             if ship_direction==0:
                 if (y-(ship_size-1)>=0):
-                    completed=check_ship (cells, x, y, ship_size, ship_direction, ship_number)
+                    completed=check_ship (name, cells, x, y, ship_size, ship_direction, ship_number)
             if ship_direction==1:
                 if (x+(ship_size-1)<=9):
-                    completed=check_ship (cells, x, y, ship_size, ship_direction, ship_number)
+                    completed=check_ship (name, cells, x, y, ship_size, ship_direction, ship_number)
             if ship_direction==2:
                 if (y+(ship_size-1)<=9):
-                    completed=check_ship (cells, x, y, ship_size, ship_direction, ship_number)
+                    completed=check_ship (name, cells, x, y, ship_size, ship_direction, ship_number)
             if ship_direction==3:
                 if (x-(ship_size-1)>=0):
-                    completed=check_ship (cells, x, y, ship_size, ship_direction, ship_number)
+                    completed=check_ship (name, cells, x, y, ship_size, ship_direction, ship_number)
             loop+=1
             if (completed or loop==4):
                 break
@@ -150,7 +177,7 @@ def place_ship(cells, ship_size, ship_number):
             break
 
 #Helper function for place_ship    
-def check_ship(cells, x, y, size, direction, ship_number):
+def check_ship(name, cells, x, y, size, direction, ship_number):
     if (size==0):
         return True
     if (cells[x][y].has_ship):
@@ -164,32 +191,70 @@ def check_ship(cells, x, y, size, direction, ship_number):
     elif (direction==2): y+=1
     else: x-=1
     #End Move
-    if check_ship(cells, x, y, size, direction, ship_number):
+    if check_ship(name, cells, x, y, size, direction, ship_number):
         cells[x1][y1].has_ship=ship_number
+        if name != "Computer":
+            cells[x1][y1].config(bg="gray30", text=str(ship_number))
         return True
     return False
 ###End Board creation
+def back_to_menu(current_frame):
+    current_frame.destroy()
+    from main import select_game
+    select_game()
 
-def play_battleship():
-    setup_board()
+def play_battleship(root, previous_frame):
+    previous_frame.destroy()
+    root.title("Battleship")
+    current_frame=tk.Frame(root)
+    current_frame.grid(row=0, column=0)
+
+    player_turn=True
+
+    def display_message(message):
+        message_area.config(state="normal")
+        message_area.insert(tk.END, message + "\n", "left")
+        message_area.see(tk.END)
+        message_area.config(state="disabled")
+
+    def switch_turns():
+        nonlocal player_turn
+        player_turn=not player_turn
+        if player_turn:
+            display_message("Computer is attacking")
+            toggle_board(computer_cells, "normal")
+            toggle_board(player_cells, "disabled")
+        else:
+            display_message("Player is attacking")
+            toggle_board(player_cells, "normal")
+            toggle_board(computer_cells, "disabled")
+
+    fleet1=[Ship("Carrier" , 5, message_callback=display_message), Ship("Battleship" , 4, message_callback=display_message), Ship("Destroyer" , 3, message_callback=display_message), Ship("Submarine" , 3, message_callback=display_message), Ship("Patrol Boat" , 2, message_callback=display_message)]
+    fleet2=[Ship("Carrier" , 5, message_callback=display_message), Ship("Battleship" , 4, message_callback=display_message), Ship("Destroyer" , 3, message_callback=display_message), Ship("Submarine" , 3, message_callback=display_message), Ship("Patrol Boat" , 2, message_callback=display_message)]
+    board1, computer_cells = setup_board(current_frame, "blue", 0, "Computer", fleet1, message_callback=display_message, switch_turns_callback=switch_turns)
+    board2, player_cells = setup_board(current_frame, "green", 2, "Player", fleet2, message_callback=display_message, switch_turns_callback=switch_turns)
+    toggle_board(computer_cells, "normal")
+    toggle_board(player_cells, "disabled")
+    buffer = tk.Label(current_frame, text=" ")
+    message_area = tk.Text(current_frame, height=5, width=50, state="disabled")
+    back_button = tk.Button(current_frame, text="Back", command=lambda: back_to_menu(root))
+    board1.grid(row=0, column=0)
+    buffer.grid(row=1,column=0)
+    board2.grid(row=2, column=0)
+    message_area.grid(row=3, column=0, sticky="w")
+    back_button.grid(row=4, column=0)
+
+    #root.mainloop()
     #setup board
         #create blank boards -- Done
             #computer -- Done
             #person -- Done
         #place ships
-            #computer
+            #computer -- Done
             #person
     #play game
         #shoot target
-        #check if already shot
-        #check if occupied by ship
-        #check if ship sunk
+        #check if already shot - Done
+        #check if occupied by ship - Done
+        #check if ship sunk - Done
         #check if end of game
-'''
-class Player:
-    def __init__ (self, name="Computer"):
-        self.name = name
-        self.board = GameBoard(10, 10)
-        self.fleet = []
-
-    '''
