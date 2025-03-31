@@ -221,13 +221,194 @@ def play_battleship(root, previous_frame):
         nonlocal player_turn
         player_turn=not player_turn
         if player_turn:
-            display_message("Computer is attacking")
             toggle_board(computer_cells, "normal")
             toggle_board(player_cells, "disabled")
         else:
-            display_message("Player is attacking")
+            display_message("Computer is attacking")
             toggle_board(player_cells, "normal")
             toggle_board(computer_cells, "disabled")
+            computer_shot(player_cells, fleet2)
+            display_message("Player is attacking")
+
+    #logic for computer play
+    def computer_shot(cells, fleet):
+        if (not game_over):
+            biggest_ship=0
+            print ("In computer_shot")
+            for ship in range (len(fleet)):
+                if (fleet[ship].sunk):
+                    print ("First IF")
+                    continue
+                if (fleet[ship].size>biggest_ship):
+                    biggest_ship=fleet[ship].size
+                if (fleet[ship].hits!=0 and not fleet[ship].sunk): #if a ship has been hit, but not sunk, fire at it
+                    #put in shooting logic
+                    ship_val=ship+1
+                    print (f"Shooting at {ship_val}")
+                    for row in range (len(cells)):
+                        for col in range (len(cells[row])):
+                            if (not cells[row][col].shot):
+                                continue
+                            if (cells[row][col].shot):
+                                if (not cells[row][col].has_ship==ship_val):
+                                    continue
+                            shoot_row, shoot_col = lookaround(cells, ship_val, row, col, None)
+                            print(f"row: {shoot_row} col: {shoot_col}")
+                            cells[shoot_row][shoot_col].click()
+                            return
+            random_shot(cells, biggest_ship)
+            return
+            
+    #find size of largest remaining ship and take shot covering that area
+    def random_shot(cells, length):
+        while(True):
+            start_x=randint(0,9)
+            start_y=randint(0,9)
+            place_holder=1
+            if (cells[start_x][start_y].shot):
+                continue
+            while (start_x-place_holder>=0 and not cells[start_x-place_holder][start_y].shot and place_holder<length):
+                place_holder+=1
+            if (place_holder>=length):
+                cells[start_x][start_y].click()
+                return
+            place_holder-=1
+            while (start_x+place_holder<10 and not cells[start_x+place_holder][start_y].shot and place_holder<length):
+                place_holder+=1
+            if (place_holder>=length):
+                cells[start_x][start_y].click()
+                return
+            place_holder=1
+            while (start_y-place_holder>=0 and not cells[start_x][start_y-place_holder].shot and place_holder<length):
+                place_holder+=1
+            if (place_holder>=length):
+                cells[start_x][start_y].click()
+                return
+            place_holder-=1
+            while (start_y+place_holder<10 and not cells[start_x][start_y+place_holder].shot and place_holder<length):
+                place_holder+=1
+            if (place_holder>=length):
+                cells[start_x][start_y].click()
+                return
+
+
+    #helper for computer_shot
+    def lookaround(cells, ship_val, row, col, direction):
+        print("In lookaround")
+        print(f"Start row: {row} Start col:{col}")
+        if (row<0 or row>9 or col<0 or col>9): #If out of bounds, return old value
+            print('1')
+            new_row, new_col=new_coords_opp(row, col, direction)
+            return new_row, new_col
+        
+        if (cells[row][col].shot and not cells[row][col].has_ship==ship_val): #if has already been shot, but didn't have the ship
+            print('2')
+            print (f"row: {row} col:{col}")
+            new_row, new_col=new_coords_opp(row, col, direction)
+            print(f"new row:{new_row} new col{new_col}")
+            return new_row, new_col
+
+        if (direction==None): #The root position
+            print('3')
+            UP, DOWN, LEFT, RIGHT=check_direction(cells, row, col)
+            if (UP):
+                print("up")
+                new_row, new_col=new_coords(row, col, "up")
+                new_row, new_col=lookaround(cells, ship_val, new_row, new_col, "up")
+                if (new_row!=row or new_col!=col):
+                    return new_row, new_col
+            if (DOWN):
+                print("down")
+                new_row, new_col=new_coords(row, col, "down")
+                new_row, new_col=lookaround(cells, ship_val, new_row, new_col, "down")
+                if (new_row!=row or new_col!=col):
+                    return new_row, new_col
+            if (LEFT):
+                print("left")
+                new_row, new_col=new_coords(row, col, "left")
+                new_row, new_col=lookaround(cells, ship_val, new_row, new_col, "left")
+                if (new_row!=row or new_col!=col):
+                    return new_row, new_col
+            if (RIGHT):
+                print("right")
+                new_row, new_col=new_coords(row, col, "right")
+                new_row, new_col=lookaround(cells, ship_val, new_row, new_col, "right")
+                if (new_row!=row or new_col!=col):
+                    return new_row, new_col
+                
+        if (not cells[row][col].shot): #return the coordinates to be shot
+            print('4')
+            print("shooting")
+            return row, col
+        print('5')
+        new_row, new_col=new_coords(row, col, direction)
+        print ("entering recursion")
+        new_row, new_col=lookaround(cells, ship_val, new_row, new_col, direction)
+        return new_row, new_col
+
+
+    def check_direction(cells, row, col):
+        print("In check_directions")
+        UP=False
+        DOWN=False
+        LEFT=False
+        RIGHT=False
+        start_cell=cells[row][col]
+        #CHECK IF ANYTHING ALREADY ESTABLISHED
+        if (row-1>=0 and cells[row-1][col].shot and cells[row-1][col].has_ship==start_cell.has_ship): #CHECK UP
+            UP=True
+            if (row+1<10 and ((cells[row+1][col].shot and cells[row+1][col].has_ship==start_cell.has_ship) or not cells[row+1][col].shot)):
+                DOWN=True
+            return UP, DOWN, LEFT, RIGHT
+        if (row+1<10 and cells[row+1][col].shot and cells[row+1][col].has_ship==start_cell.has_ship): #CHECK DOWN
+            DOWN=True
+            if (row-1>=0 and ((cells[row-1][col].shot and cells[row-1][col].has_ship==start_cell.has_ship) or not cells[row-1][col].shot)):
+                UP=True
+            return UP, DOWN, LEFT, RIGHT
+        if (col-1>=0 and cells[row][col-1].shot and cells[row][col-1].has_ship==start_cell.has_ship): #CHECK LEFT
+            LEFT=True
+            if (col+1<10 and ((cells[row][col+1].shot and cells[row][col+1].has_ship==start_cell.has_ship) or not cells[row][col+1].shot)):
+                RIGHT=True
+            return UP, DOWN, LEFT, RIGHT
+        if (col+1<10 and cells[row][col+1].shot and cells[row][col+1].has_ship==start_cell.has_ship): #CHECK RIGHT
+            RIGHT=True
+            if (col-1>=0 and ((cells[row][col-1].shot and cells[row][col-1].has_ship==start_cell.has_ship) or not cells[row][col-1].shot)):
+                LEFT=True
+            return UP, DOWN, LEFT, RIGHT
+        #IF NOTHING ESTABLISHED, JUST SAY EVERYTHING NOT SHOT IS FAIR GAME
+        if (row-1>=0 and not cells[row-1][col].shot):
+            UP=True
+        if (row+1<10 and not cells[row+1][col].shot):
+            DOWN=True
+        if (col-1>=0 and not cells[row][col-1].shot):
+            LEFT=True
+        if (col+1<10 and not cells[row][col+1].shot):
+            RIGHT=True
+        return UP, DOWN, LEFT, RIGHT
+
+    def new_coords_opp(row, col, direction):
+        if (direction=="up"):
+            return row+1, col
+        if (direction=="down"):
+            return row-1, col
+        if (direction=="left"):
+            return row, col+1
+        if (direction=="right"):
+            return row, col-1
+        else:
+            return row, col
+        
+    def new_coords(row, col, direction):
+        if (direction=="up"):
+            return row-1, col
+        if (direction=="down"):
+            return row+1, col
+        if (direction=="left"):
+            return row, col-1
+        if (direction=="right"):
+            return row, col+1
+        else:
+            return row, col
 
     fleet1=[Ship("Carrier" , 5, message_callback=display_message), Ship("Battleship" , 4, message_callback=display_message), Ship("Destroyer" , 3, message_callback=display_message), Ship("Submarine" , 3, message_callback=display_message), Ship("Patrol Boat" , 2, message_callback=display_message)]
     fleet2=[Ship("Carrier" , 5, message_callback=display_message), Ship("Battleship" , 4, message_callback=display_message), Ship("Destroyer" , 3, message_callback=display_message), Ship("Submarine" , 3, message_callback=display_message), Ship("Patrol Boat" , 2, message_callback=display_message)]
@@ -257,4 +438,4 @@ def play_battleship(root, previous_frame):
         #check if already shot - Done
         #check if occupied by ship - Done
         #check if ship sunk - Done
-        #check if end of game
+        #check if end of game - Done
