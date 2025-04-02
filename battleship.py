@@ -1,5 +1,6 @@
 import tkinter as tk
 from random import randint
+from gameboard import clean_frame, back_btn
 
 game_over=False
 
@@ -198,16 +199,8 @@ def check_ship(name, cells, x, y, size, direction, ship_number):
         return True
     return False
 ###End Board creation
-def back_to_menu(current_frame):
-    current_frame.destroy()
-    from main import select_game
-    select_game()
-
-def play_battleship(root, previous_frame):
-    previous_frame.destroy()
-    root.title("Battleship")
-    current_frame=tk.Frame(root)
-    current_frame.grid(row=0, column=0)
+def play_battleship(root, previous_frame, select_return):
+    current_frame=clean_frame(root, previous_frame, "Battleship")
 
     player_turn=True
 
@@ -418,13 +411,12 @@ def play_battleship(root, previous_frame):
     toggle_board(player_cells, "disabled")
     buffer = tk.Label(current_frame, text=" ")
     message_area = tk.Text(current_frame, height=5, width=50, state="disabled")
-    back_button = tk.Button(current_frame, text="Back", command=lambda: back_to_menu(root))
+    back_button = back_btn(root, current_frame, select_return)
     board1.grid(row=0, column=0)
     buffer.grid(row=1,column=0)
     board2.grid(row=2, column=0)
     message_area.grid(row=3, column=0, sticky="w")
     back_button.grid(row=4, column=0)
-
     #root.mainloop()
     #setup board
         #create blank boards -- Done
