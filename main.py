@@ -17,7 +17,7 @@ def select_game(root, title):
     label.grid(row=0, column=0)
     battleship=tk.Button(selection_screen, text="Battleship", command=lambda: play_battleship(root, selection_screen, select_game))
     battleship.grid(row=1,column=0)
-    minecraft=tk.Button(selection_screen, text="Minecraft", command=lambda: start_minesweeper(root, selection_screen, select_game))
+    minecraft=tk.Button(selection_screen, text="Minesweeper", command=lambda: start_minesweeper(root, selection_screen, select_game))
     minecraft.grid(row=2, column=0)
 
 main()
